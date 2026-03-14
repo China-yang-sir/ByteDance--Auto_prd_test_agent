@@ -7,11 +7,10 @@ from PIL import Image
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from config.settings import setup_proxy
 from config.prompts import PromptManager
 from ui.sidebar import render_sidebar
 from ui.components import display_results
-from core.llm_client import get_gemini_chat_response, generate_summary, extract_json_from_text
+from core.llm_client import get_qwen_chat_response, generate_summary, extract_json_from_text
 from core.rag_engine import RAGEngine
 from core.evaluator import Evaluator # 新增引用
 
@@ -45,7 +44,6 @@ def split_text_and_json(text):
     return text, json_data
 
 def main():
-    setup_proxy()
     st.set_page_config(page_title="Auto_prd_test_expert", layout="wide")
     
     # Session 初始化
@@ -120,11 +118,11 @@ def main():
                                     filter_prompt = PromptManager.get_rag_filter_prompt(preview_txt, raw_rag_info)
                                     
                                     # 调用 LLM (建议用 Flash 模型，速度快)
-                                    # 注意：这里直接复用 get_gemini_chat_response 或者直接调用 SDK 均可
+                                    # 注意：这里直接复用 get_qwen_chat_response 或者直接调用 SDK 均可
                                     # 为了方便，假设我们复用现有的 chat 接口，但不带历史记录
-                                    filtered_text, _ = get_gemini_chat_response(
+                                    filtered_text, _ = get_qwen_chat_response(
                                         api_key, 
-                                        selected_model, # 或者强制指定 "models/gemini-1.5-flash" 以提速
+                                        selected_model, 
                                         [], # 无历史
                                         filter_prompt
                                     )
@@ -163,7 +161,7 @@ def main():
                         )
                         full_payload = initial_prompt + st.session_state.get('current_prompt_content', [])
                         
-                        resp_text, updated_history = get_gemini_chat_response(
+                        resp_text, updated_history = get_qwen_chat_response(
                             api_key, selected_model, 
                             st.session_state['gemini_history'], 
                             full_payload, 
@@ -233,7 +231,7 @@ def main():
                                 prompt, st.session_state['rag_context']
                             )
                             
-                            resp_text, updated_history = get_gemini_chat_response(
+                            resp_text, updated_history = get_qwen_chat_response(
                                 api_key, selected_model, 
                                 st.session_state['gemini_history'], 
                                 refine_prompt_str,

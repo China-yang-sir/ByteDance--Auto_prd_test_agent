@@ -18,3 +18,7 @@ data/user_config.json
 
 # 5. 保留 data 目录结构
 !data/.gitkeep
+
+# 6. 忽略Vim产生的临时文件
+*.swp
+*.swo

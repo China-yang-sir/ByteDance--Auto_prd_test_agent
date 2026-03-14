@@ -10,7 +10,7 @@ def render_sidebar():
         st.header("🔑 配置中心")
         
         # 1. API Key 输入
-        api_key = st.text_input("Gemini API Key", value=config.get('api_key', ''), type="password")
+        api_key = st.text_input("Qwen API Key", value=config.get('api_key', ''), type="password")
         
         # 保存按钮
         if st.button("💾 保存配置"):
@@ -20,7 +20,7 @@ def render_sidebar():
         st.divider()
 
         # 2. 动态模型选择
-        selected_model = "models/gemini-1.5-flash" # 默认兜底
+        selected_model = "qwen-plus" # 默认兜底
         if api_key:
             with st.spinner("正在联网获取模型列表..."):
                 available_models = get_available_models(api_key)
@@ -29,16 +29,16 @@ def render_sidebar():
                 # 智能默认选中 Pro，因为效果更好
                 default_idx = 0
                 for i, name in enumerate(available_models):
-                    if "gemini-1.5-pro" in name and "latest" in name:
+                    if "qwen-max" in name and "latest" in name:
                         default_idx = i
                         break
-                    elif "gemini-1.5-pro" in name: # 次优选择
+                    elif "qwen-plus" in name: # 次优选择
                         default_idx = i
                 
                 selected_model = st.selectbox("🤖 选择模型", available_models, index=default_idx)
             else:
-                st.warning("无法获取模型列表，将使用默认 Flash 模型")
-                selected_model = "models/gemini-1.5-flash"
+                st.warning("无法获取模型列表，将使用默认 Qwen 模型")
+                selected_model = "qwen-plus"
         else:
             st.info("请输入 API Key 以解锁高级模型选择")
             

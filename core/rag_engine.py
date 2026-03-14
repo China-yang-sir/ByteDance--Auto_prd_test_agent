@@ -4,11 +4,11 @@ import json
 import uuid
 import sys
 from datetime import datetime
-import google.generativeai as genai
 from PIL import Image
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config.prompts import PromptManager
+from core.llm_client import get_qwen_chat_response, get_qwen_embedding
 
 # 路径配置
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -85,7 +85,7 @@ class RAGEngine:
     def __init__(self, api_key):
         if not api_key: raise ValueError("RAG Engine 需要 API Key")
         self.client = chromadb.PersistentClient(path=DB_PATH)
-        self.embedding_fn = GeminiEmbeddingFunction(api_key)
+        self.embedding_fn = QwenEmbeddingFunction(api_key)
         self.api_key = api_key 
 
         self.history_coll = self.client.get_or_create_collection(name="history_cases", embedding_function=self.embedding_fn)
@@ -99,12 +99,9 @@ class RAGEngine:
             f.write(file_obj.read())
         return file_path
 
-    def parse_file_content(self, file_obj, file_type, model_name="models/gemini-1.5-flash"):
+    def parse_file_content(self, file_obj, file_type, model_name=None):
         """利用 AI 解析图片/PDF 内容为文本"""
         try:
-            genai.configure(api_key=self.api_key)
-            model = genai.GenerativeModel(model_name)
-            
             content_part = []
             file_obj.seek(0)
             
@@ -118,13 +115,17 @@ class RAGEngine:
                 content_part = [prompt, {"mime_type": "application/pdf", "data": file_bytes}]
             else:
                 return file_obj.read().decode('utf-8')
-            
-            resp = model.generate_content(content_part)
-            return resp.text
+            resp_text, _ = get_qwen_chat_response(
+                api_key=self.api_key,
+                model_name=model_name,
+                history=[],
+                user_input=content_part
+            )
+            return resp_text
         except Exception as e:
             return f"[解析失败] {str(e)}"
 
-    def add_knowledge(self, file_obj, summary="", content_text=None, model_name="models/gemini-1.5-flash"):
+    def add_knowledge(self, file_obj, summary="", content_text=None, model_name=None):
         """支持 Chunking 切片存储"""
         saved_path = self._save_raw_file(file_obj, file_obj.name)
         
@@ -132,7 +133,7 @@ class RAGEngine:
         if content_text:
             final_content = content_text
         else:
-            if "text" in file_obj.type or "md" in file_obj.name:
+            if "text" in file_obj.type or file_obj.name.endswith(".md"):
                 file_obj.seek(0)
                 final_content = file_obj.getvalue().decode("utf-8")
             else:
@@ -244,12 +245,12 @@ class RAGEngine:
                     sources.append(f"🕰️ {summary}")
         return "\n\n<<<RAG_SEP>>>\n\n".join(context_parts), list(set(sources))
 
-class GeminiEmbeddingFunction(chromadb.EmbeddingFunction):
+class QwenEmbeddingFunction(chromadb.EmbeddingFunction):
     def __init__(self, api_key):
-        genai.configure(api_key=api_key)
+        self.api_key = api_key
     def __call__(self, input):
         if isinstance(input, str): input = [input]
         try:
-            result = genai.embed_content(model="models/text-embedding-004", content=input, task_type="retrieval_document")
-            return result['embedding']
-        except: return [[0.0] * 768 for _ in input]
+            return get_qwen_embedding(self.api_key, input)
+        except Exception:
+            return [[0.0] * 1024 for _ in input]
